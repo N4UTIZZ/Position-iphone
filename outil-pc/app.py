@@ -284,10 +284,12 @@ def tunneld_disponible() -> bool:
 
 
 def _popen_kwargs() -> dict[str, Any]:
+    # stdin=PIPE gardé ouvert : pymobiledevice3 attend « Press ENTER to exit ».
+    # Avec DEVNULL il reçoit EOF et arrête la simulation tout de suite.
     kwargs: dict[str, Any] = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.STDOUT,
-        "stdin": subprocess.DEVNULL,
+        "stdin": subprocess.PIPE,
         "text": True,
         "encoding": "utf-8",
         "errors": "replace",
@@ -540,6 +542,17 @@ def _arreter_processus_set() -> None:
     if proc is None or proc.poll() is not None:
         return
     try:
+        # Arrêt propre : on « appuie sur Entrée » comme dans le terminal.
+        try:
+            if proc.stdin is not None:
+                proc.stdin.write("\n")
+                proc.stdin.flush()
+                proc.stdin.close()
+            proc.wait(timeout=5)
+            _set_proc_output = []
+            return
+        except Exception:
+            pass
         if sys.platform == "win32":
             try:
                 proc.send_signal(subprocess.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
@@ -626,7 +639,7 @@ def appliquer_position(lat: float, lon: float, label: str) -> dict[str, Any]:
                         )
                     )
                 low = chunk.lower()
-                if "press ctrl+c" in low or "sigint" in low:
+                if "press ctrl+c" in low or "sigint" in low or "press enter" in low:
                     break
                 # Toujours en cours après 6 s : on considère que la session tient.
                 if time.monotonic() - started >= 6 and "error" not in low and "traceback" not in low:
