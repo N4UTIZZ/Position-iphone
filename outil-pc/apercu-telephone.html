@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Position">
+  <meta name="theme-color" content="#14170f">
+  <meta name="color-scheme" content="dark">
+  <title>Position — aperçu</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+:root {
+  --fond: #14170f;
+  --carte: #1d2218;
+  --ligne: #34392c;
+  --texte: #f3efe2;
+  --muted: #b4ad99;
+  --laiton: #d7a441;
+  --laiton-texte: #241c0d;
+  --ok: #9cba78;
+  --non: #d4846a;
+  --radius: 16px;
+  --entree: #10140e;
+  --nav-fond: #10140ee6;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--fond);
+  color: var(--texte);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.banniere {
+  flex: 0 0 auto;
+  z-index: 5;
+  background: var(--laiton);
+  color: var(--laiton-texte);
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+.barre {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 16px 10px;
+}
+.marque {
+  font-family: Palatino, "Palatino Linotype", "Iowan Old Style", "Times New Roman", serif;
+  font-size: 1.55rem;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.sous-titre, .note, .muted, .hint { color: var(--muted); }
+.sous-titre { margin: 4px 0 0; font-size: 0.92rem; }
+.etat-horloge {
+  text-align: right;
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.3;
+  flex: 0 0 auto;
+}
+.voyant {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  margin-right: 6px;
+  vertical-align: middle;
+  transition: background 0.25s ease;
+}
+.voyant.ok { background: var(--ok); }
+.voyant.non { background: var(--non); }
+
+h1 {
+  font-family: Palatino, "Palatino Linotype", "Iowan Old Style", "Times New Roman", serif;
+  font-weight: 400;
+  font-size: 1.7rem;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+}
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+label, .libelle {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+input, button, select {
+  font: inherit;
+  border-radius: 12px;
+  border: 1px solid var(--ligne);
+  background: var(--entree);
+  color: var(--texte);
+  padding: 12px;
+}
+input[type="text"] {
+  font-size: 16px;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+input[type="text"]:focus { border-color: var(--laiton); }
+button {
+  background: var(--laiton);
+  color: var(--laiton-texte);
+  border: 0;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: transform 0.12s ease, filter 0.12s ease, background 0.15s ease;
+}
+button:hover:not(:disabled) { filter: brightness(1.05); }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.secondaire {
+  background: transparent;
+  color: var(--texte);
+  border: 1px solid var(--ligne);
+}
+
+.nav {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--nav-fond);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 8;
+}
+.nav button { padding: 10px 4px; font-size: 0.82rem; min-height: 44px; }
+.nav button.secondaire { background: transparent; }
+
+.vue {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 16px 16px;
+  animation: apparaitre 0.28s ease;
+}
+.vue[hidden] { display: none !important; animation: none; }
+.vue-carte {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+#map {
+  position: absolute;
+  inset: 0;
+  background: #10140e;
+}
+.carte-recherche {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  padding: 8px;
+}
+.carte-recherche button { min-height: 48px; flex: 0 0 auto; padding: 12px 16px; }
+.suggestions {
+  position: absolute;
+  top: 66px;
+  left: 12px;
+  right: 12px;
+  z-index: 1001;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overflow-y: auto;
+  max-height: min(36vh, 280px);
+  display: none;
+}
+.suggestions button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--texte);
+  font-weight: 500;
+  border-radius: 0;
+  border-bottom: 1px solid var(--ligne);
+  min-height: 44px;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+}
+.suggestions li:last-child button { border-bottom: 0; }
+
+.sheet {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 1000;
+  max-height: 48%;
+  overflow: auto;
+}
+.sim { display: none; margin-bottom: 10px; color: var(--ok); }
+.sim.show { display: block; }
+.sim .libelle { color: var(--ok); }
+.coords { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+.actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.actions button { width: 100%; min-height: 48px; }
+.msg { display: none; white-space: pre-wrap; margin-top: 10px; font-size: 0.92rem; line-height: 1.4; }
+.msg.show { display: block; }
+.msg.ok { color: var(--ok); }
+.msg.err { color: var(--non); }
+.hint { font-size: 0.82rem; line-height: 1.4; margin: 10px 0 0; }
+
+.liste-lieux { display: grid; gap: 10px; }
+.liste-lieux + h2, .bloc-lieux + .bloc-lieux { margin-top: 20px; }
+h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.lieu {
+  width: 100%;
+  text-align: left;
+  background: var(--carte);
+  color: var(--texte);
+  border: 1px solid var(--ligne);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.lieu .nom { flex: 1; min-width: 0; }
+.lieu .etoile {
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--laiton);
+  border: 0;
+  padding: 4px 6px;
+  min-width: 36px;
+  font-size: 1.1rem;
+}
+.vide { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0; }
+.qr-bloc { text-align: center; }
+.qr-bloc img {
+  width: 168px;
+  height: 168px;
+  background: #fff;
+  border-radius: 12px;
+  margin: 8px 0;
+}
+.qr-bloc a { color: var(--texte); word-break: break-all; }
+
+/* Leaflet, dark / brass — tuiles OSM inversées (sans clé API) */
+.leaflet-container { background: #10140e; font-family: inherit; }
+.leaflet-tile-pane {
+  filter: invert(0.94) hue-rotate(172deg) saturate(0.35) brightness(0.86) contrast(1.04);
+}
+.leaflet-bar {
+  border: 1px solid var(--ligne) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+.leaflet-bar a {
+  background: var(--carte) !important;
+  color: var(--texte) !important;
+  border-bottom: 1px solid var(--ligne) !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+}
+.leaflet-bar a:last-child { border-bottom: 0 !important; }
+.leaflet-control-attribution {
+  background: #10140ecc !important;
+  color: var(--muted) !important;
+}
+.leaflet-control-attribution a { color: var(--muted) !important; }
+.leaflet-top.leaflet-right { margin-top: 70px; }
+.pin-laiton {
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -22px;
+  background: var(--laiton);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 1px 4px #0008;
+  border: 2px solid var(--laiton-texte);
+}
+
+@keyframes apparaitre {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+@media (min-width: 900px) {
+  .marque { font-size: 1.7rem; }
+  .vue:not(.vue-carte) { max-width: 720px; margin: 0 auto; width: 100%; }
+  .nav { max-width: 720px; margin: 0 auto; width: 100%; }
+  .carte-recherche, .suggestions, .sheet {
+    left: 16px;
+    right: auto;
+    width: 400px;
+  }
+  .leaflet-top.leaflet-right { margin-top: 10px; }
+}
+
+  </style>
+</head>
+<body>
+  <div id="banniere" class="banniere" role="status">Aperçu — lance start.bat sur le PC pour appliquer la position</div>
+  <header class="barre">
+    <div>
+      <p class="marque">Position</p>
+      <p class="sous-titre">Adresse exacte, iPhone branché</p>
+    </div>
+    <div class="etat-horloge">
+      <span id="voyant" class="voyant"></span>
+      <span id="etat-court">Aperçu</span>
+    </div>
+  </header>
+
+  <section id="vue-carte" class="vue vue-carte">
+    <div id="map"></div>
+    <form class="search carte-recherche carte" id="search-form">
+      <input type="text" id="query" placeholder="10 rue de Rivoli, Paris" autocomplete="off" autocapitalize="off" enterkeyhint="search" required>
+      <button type="submit" id="btn-search">Rechercher</button>
+    </form>
+    <ul class="suggestions carte" id="suggestions"></ul>
+    <div class="sheet carte">
+      <div class="sim" id="sim">
+        <span class="libelle">Ma position actuelle simulée</span>
+        <div id="sim-label">Aucune simulation en cours.</div>
+        <div class="coords" id="sim-coords"></div>
+      </div>
+      <span class="libelle">Point choisi</span>
+      <div id="pick-label">Aucun pour le moment. Recherche une adresse ou appuie sur la carte.</div>
+      <div class="coords" id="pick-coords"></div>
+      <div class="actions">
+        <button type="button" id="btn-apply" disabled>Appliquer la position</button>
+        <button class="secondaire" type="button" id="btn-reset">Réinitialiser (position réelle)</button>
+        <button class="secondaire" type="button" id="btn-favori" disabled>Ajouter aux favoris</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+  </section>
+
+  <section id="vue-adresses" class="vue" hidden>
+    <h1>Adresses</h1>
+    <div class="bloc-lieux">
+      <h2>Favoris</h2>
+      <p class="vide" id="vide-favoris">Aucune adresse favorite. Étoile un point depuis la carte.</p>
+      <div class="liste-lieux" id="liste-favoris"></div>
+    </div>
+    <div class="bloc-lieux">
+      <h2>Récentes</h2>
+      <p class="vide" id="vide-recents">Les adresses que tu recherches ou appliques apparaissent ici.</p>
+      <div class="liste-lieux" id="liste-recents"></div>
+    </div>
+  </section>
+
+  <section id="vue-etat" class="vue" hidden>
+    <h1>État</h1>
+    <article class="carte" id="etat-detail">
+      <p>Ceci est un aperçu. Pour appliquer une position à l’iPhone, lance <strong>start.bat</strong> sur le PC, branche le téléphone en USB, puis ouvre le lien avec le QR code.</p>
+    </article>
+    <article class="carte" style="margin-top:12px">
+      <p class="hint">La recherche d’adresse, la carte et les favoris fonctionnent déjà ici. Appliquer la position se fera depuis l’outil lancé sur l’ordinateur.</p>
+    </article>
+  </section>
+
+  <nav class="nav" id="nav">
+    <button type="button" data-vue="carte">Carte</button>
+    <button class="secondaire" type="button" data-vue="adresses">Adresses</button>
+    <button class="secondaire" type="button" data-vue="etat">État</button>
+  </nav>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    window.POSITION_CONFIG = {
+      parisLat: 48.8566,
+      parisLon: 2.3522,
+      phoneUrl: "",
+      qrDataUri: "",
+      preview: true
+    };
+  </script>
+  <script>
+(function () {
+  const cfg = window.POSITION_CONFIG || {};
+  const PREVIEW = !!cfg.preview;
+  const PREVIEW_NOTICE = "Aperçu : lance start.bat sur le PC pour appliquer la position";
+  const LS_KEY = "position-iphone-lieux";
+  const PARIS = [cfg.parisLat || 48.8566, cfg.parisLon || 2.3522];
+
+  const el = (id) => document.getElementById(id);
+  const banniere = el("banniere");
+  const voyant = el("voyant");
+  const etatCourt = el("etat-court");
+  const query = el("query");
+  const suggestions = el("suggestions");
+  const pickLabel = el("pick-label");
+  const pickCoords = el("pick-coords");
+  const btnApply = el("btn-apply");
+  const btnReset = el("btn-reset");
+  const btnSearch = el("btn-search");
+  const btnFavori = el("btn-favori");
+  const msg = el("msg");
+  const sim = el("sim");
+  const simLabel = el("sim-label");
+  const simCoords = el("sim-coords");
+  const etatDetail = el("etat-detail");
+  const listeFavoris = el("liste-favoris");
+  const listeRecents = el("liste-recents");
+  const videFavoris = el("vide-favoris");
+  const videRecents = el("vide-recents");
+
+  let hasPoint = false;
+  let current = { lat: null, lon: null, label: "" };
+  let map, marker;
+
+  function showMsg(text, kind) {
+    if (!msg) return;
+    msg.className = "msg show " + (kind || "ok");
+    msg.textContent = text;
+  }
+
+  function hideSuggestions() {
+    if (!suggestions) return;
+    suggestions.style.display = "none";
+    suggestions.innerHTML = "";
+  }
+
+  function loadLieux() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+      return {
+        favoris: Array.isArray(raw.favoris) ? raw.favoris : [],
+        recents: Array.isArray(raw.recents) ? raw.recents : [],
+      };
+    } catch (e) {
+      return { favoris: [], recents: [] };
+    }
+  }
+
+  function saveLieux(data) {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  }
+
+  function memeLieu(a, b) {
+    return Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5;
+  }
+
+  function estFavori(point) {
+    if (!point || point.lat == null) return false;
+    return loadLieux().favoris.some((f) => memeLieu(f, point));
+  }
+
+  function ajouterRecent(point) {
+    if (!point || point.lat == null) return;
+    const data = loadLieux();
+    data.recents = [point, ...data.recents.filter((r) => !memeLieu(r, point))].slice(0, 12);
+    saveLieux(data);
+    peindreAdresses();
+    majFavoriBtn();
+  }
+
+  function basculerFavori() {
+    if (!hasPoint) return;
+    const data = loadLieux();
+    if (estFavori(current)) {
+      data.favoris = data.favoris.filter((f) => !memeLieu(f, current));
+    } else {
+      data.favoris = [current, ...data.favoris.filter((f) => !memeLieu(f, current))].slice(0, 20);
+    }
+    saveLieux(data);
+    peindreAdresses();
+    majFavoriBtn();
+  }
+
+  function majFavoriBtn() {
+    if (!btnFavori) return;
+    btnFavori.disabled = !hasPoint;
+    btnFavori.textContent = estFavori(current) ? "Retirer des favoris" : "Ajouter aux favoris";
+  }
+
+  function peindreAdresses() {
+    const data = loadLieux();
+    remplirListe(listeFavoris, videFavoris, data.favoris, true);
+    remplirListe(listeRecents, videRecents, data.recents, false);
+  }
+
+  function remplirListe(conteneur, vide, items, favori) {
+    if (!conteneur) return;
+    conteneur.querySelectorAll(".lieu-wrap").forEach((n) => n.remove());
+    if (vide) vide.hidden = items.length > 0;
+    items.forEach((item) => {
+      const wrap = document.createElement("div");
+      wrap.className = "lieu-wrap";
+      wrap.style.display = "flex";
+      wrap.style.gap = "8px";
+      wrap.style.alignItems = "stretch";
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "lieu";
+      b.innerHTML = "<span class=\"nom\"></span>";
+      b.querySelector(".nom").textContent = item.label || (item.lat.toFixed(5) + ", " + item.lon.toFixed(5));
+      b.addEventListener("click", () => {
+        setPoint(item.lat, item.lon, item.label, true);
+        ajouterRecent(item);
+        basculerVue("carte");
+      });
+      const star = document.createElement("button");
+      star.type = "button";
+      star.className = "etoile secondaire";
+      star.setAttribute("aria-label", favori ? "Retirer des favoris" : "Ajouter aux favoris");
+      star.textContent = favori ? "★" : "☆";
+      star.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        current = item;
+        hasPoint = true;
+        basculerFavori();
+      });
+      wrap.appendChild(b);
+      wrap.appendChild(star);
+      conteneur.appendChild(wrap);
+    });
+  }
+
+  function setPoint(lat, lon, label, fly) {
+    hasPoint = true;
+    current = { lat, lon, label: label || (lat.toFixed(6) + ", " + lon.toFixed(6)) };
+    if (marker && map) {
+      marker.setLatLng([lat, lon]);
+      if (!map.hasLayer(marker)) marker.addTo(map);
+      if (fly) map.flyTo([lat, lon], Math.max(map.getZoom(), 16), { duration: 0.7 });
+    }
+    if (pickLabel) pickLabel.textContent = current.label;
+    if (pickCoords) pickCoords.textContent = lat.toFixed(6) + ", " + lon.toFixed(6);
+    if (btnApply) btnApply.disabled = false;
+    majFavoriBtn();
+  }
+
+  function pinIcon() {
+    return L.divIcon({
+      className: "",
+      html: '<div class="pin-laiton"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 22],
+    });
+  }
+
+  async function apiReverse(lat, lon) {
+    if (PREVIEW) {
+      const url = "https://nominatim.openstreetmap.org/reverse?" + new URLSearchParams({
+        lat: String(lat), lon: String(lon), format: "jsonv2", addressdetails: "1",
+      });
+      const r = await fetch(url, { headers: { "Accept-Language": "fr" } });
+      if (!r.ok) throw new Error("reverse");
+      const data = await r.json();
+      return data.display_name || (lat.toFixed(6) + ", " + lon.toFixed(6));
+    }
+    const r = await fetch("/api/reverse?lat=" + lat + "&lon=" + lon);
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || "reverse");
+    return data.label;
+  }
+
+  async function apiGeocode(q) {
+    if (PREVIEW) {
+      const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
+        q: q, format: "jsonv2", limit: "5", addressdetails: "1",
+      });
+      const r = await fetch(url, { headers: { "Accept-Language": "fr" } });
+      if (!r.ok) throw new Error("search");
+      const results = await r.json();
+      return (results || []).map((item) => ({
+        label: item.display_name,
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+      }));
+    }
+    const r = await fetch("/api/geocode?q=" + encodeURIComponent(q));
+    const data = await r.json();
+    if (!data.ok || !data.results) throw new Error(data.error || "Aucun résultat.");
+    return data.results;
+  }
+
+  function updateSim(simData) {
+    if (simData && simData.active && simData.lat != null) {
+      if (sim) sim.classList.add("show");
+      if (simLabel) simLabel.textContent = simData.label || "Position simulée";
+      if (simCoords) simCoords.textContent = Number(simData.lat).toFixed(6) + ", " + Number(simData.lon).toFixed(6);
+    } else {
+      if (sim) sim.classList.remove("show");
+      if (simLabel) simLabel.textContent = "Aucune simulation en cours.";
+      if (simCoords) simCoords.textContent = "";
+    }
+  }
+
+  function peindreEtat(data) {
+    if (!etatDetail) return;
+    if (PREVIEW) {
+      etatDetail.innerHTML = "<p>Ceci est un aperçu. Pour appliquer une position à l’iPhone, lance <strong>start.bat</strong> sur le PC, branche le téléphone en USB, puis ouvre le lien avec le QR code.</p>";
+      return;
+    }
+    const dev = data && data.device;
+    const simData = (data && data.simulation) || {};
+    const lignes = [];
+    if (dev) {
+      lignes.push("<p class=\"ok\"><strong>" + (dev.name || "iPhone") + "</strong> — iOS " + (dev.version || "?") + (dev.connection ? " · " + dev.connection : "") + "</p>");
+      if (data.tunneld) lignes.push("<p class=\"muted\">tunneld est joignable.</p>");
+      else if (dev.ios17) lignes.push("<p class=\"muted\">Tunnel automatique (sans administrateur), adapté à iOS 17.4 et plus.</p>");
+    } else {
+      lignes.push("<p class=\"erreur\">" + ((data && data.error) || "Aucun iPhone détecté.") + "</p>");
+    }
+    if (simData.active) {
+      lignes.push("<p class=\"ok\"><strong>Position simulée :</strong> " + (simData.label || "") + "</p>");
+      lignes.push("<p class=\"coords\">" + Number(simData.lat).toFixed(6) + ", " + Number(simData.lon).toFixed(6) + "</p>");
+    } else {
+      lignes.push("<p class=\"muted\">Aucune simulation en cours. La position réelle de l’iPhone s’applique.</p>");
+    }
+    etatDetail.innerHTML = lignes.join("");
+  }
+
+  async function refreshStatus() {
+    if (PREVIEW) {
+      if (banniere) banniere.textContent = "Aperçu — lance start.bat sur le PC pour appliquer la position";
+      if (voyant) voyant.className = "voyant";
+      if (etatCourt) etatCourt.textContent = "Aperçu";
+      peindreEtat(null);
+      return;
+    }
+    try {
+      const r = await fetch("/api/status");
+      const data = await r.json();
+      const dev = data.device;
+      const simData = data.simulation || {};
+      updateSim(simData);
+      peindreEtat(data);
+      if (dev) {
+        if (voyant) voyant.className = "voyant ok";
+        if (etatCourt) etatCourt.textContent = (dev.name || "iPhone") + " · iOS " + (dev.version || "?");
+        if (simData.active) {
+          if (banniere) banniere.textContent = "Position simulée : " + (simData.label || (Number(simData.lat).toFixed(5) + ", " + Number(simData.lon).toFixed(5)));
+        } else {
+          if (banniere) banniere.textContent = (dev.name || "iPhone") + " connecté — iOS " + (dev.version || "?") + ". Branche le câble pour appliquer une position.";
+        }
+      } else {
+        if (voyant) voyant.className = "voyant non";
+        if (etatCourt) etatCourt.textContent = "Hors ligne";
+        if (banniere) banniere.textContent = "Aucun iPhone détecté. Branche-le avec un câble USB.";
+      }
+    } catch (e) {
+      if (voyant) voyant.className = "voyant non";
+      if (etatCourt) etatCourt.textContent = "Serveur injoignable";
+      if (banniere) banniere.textContent = "Serveur local injoignable. start.bat est-il encore ouvert ?";
+    }
+  }
+
+  function basculerVue(nom) {
+    document.querySelectorAll(".vue").forEach((v) => {
+      v.hidden = v.id !== "vue-" + nom;
+    });
+    document.querySelectorAll(".nav button").forEach((b) => {
+      if (b.getAttribute("data-vue") === nom) b.classList.remove("secondaire");
+      else b.classList.add("secondaire");
+    });
+    if (nom === "carte" && map) {
+      setTimeout(() => map.invalidateSize(), 80);
+    }
+    if (nom === "adresses") peindreAdresses();
+  }
+
+  function initMap() {
+    map = L.map("map", { zoomControl: false, tap: true }).setView(PARIS, 13);
+    L.control.zoom({ position: "topright" }).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap",
+    }).addTo(map);
+    marker = L.marker(PARIS, { draggable: true, icon: pinIcon() });
+    setTimeout(() => map.invalidateSize(), 200);
+    window.addEventListener("resize", () => map.invalidateSize());
+
+    marker.on("dragend", async () => {
+      const { lat, lng } = marker.getLatLng();
+      setPoint(lat, lng, "Point déplacé sur la carte…", false);
+      try { setPoint(lat, lng, await apiReverse(lat, lng), false); } catch (e) {
+        setPoint(lat, lng, lat.toFixed(6) + ", " + lng.toFixed(6), false);
+      }
+    });
+
+    map.on("click", async (e) => {
+      const { lat, lng } = e.latlng;
+      setPoint(lat, lng, "Recherche de l'adresse…", false);
+      try { setPoint(lat, lng, await apiReverse(lat, lng), false); } catch (e) {
+        setPoint(lat, lng, lat.toFixed(6) + ", " + lng.toFixed(6), false);
+      }
+    });
+  }
+
+  function lireHash() {
+    const raw = (location.hash || "").replace(/^#/, "");
+    if (!raw) return;
+    const p = new URLSearchParams(raw);
+    const lat = parseFloat(p.get("lat"));
+    const lon = parseFloat(p.get("lon"));
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setPoint(lat, lon, p.get("label") || "", true);
+    }
+  }
+
+  el("search-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = query.value.trim();
+    if (!q) return;
+    hideSuggestions();
+    btnSearch.disabled = true;
+    try {
+      const results = await apiGeocode(q);
+      if (!results.length) {
+        showMsg("Aucun résultat pour cette adresse. Essaie d'être plus précis.", "err");
+        return;
+      }
+      const first = results[0];
+      setPoint(first.lat, first.lon, first.label, true);
+      ajouterRecent({ lat: first.lat, lon: first.lon, label: first.label });
+      showMsg("Adresse trouvée. Vérifie le point, puis applique la position.", "ok");
+      if (results.length > 1) {
+        results.forEach((item) => {
+          const li = document.createElement("li");
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = item.label;
+          b.addEventListener("click", () => {
+            setPoint(item.lat, item.lon, item.label, true);
+            ajouterRecent({ lat: item.lat, lon: item.lon, label: item.label });
+            hideSuggestions();
+          });
+          li.appendChild(b);
+          suggestions.appendChild(li);
+        });
+        suggestions.style.display = "block";
+      }
+    } catch (err) {
+      showMsg(err.message || "La recherche d'adresse a échoué.", "err");
+    } finally {
+      btnSearch.disabled = false;
+    }
+  });
+
+  btnApply.addEventListener("click", async () => {
+    if (!hasPoint) return;
+    if (PREVIEW) {
+      showMsg(PREVIEW_NOTICE, "err");
+      return;
+    }
+    btnApply.disabled = true;
+    showMsg("Envoi de la position à l'iPhone…", "ok");
+    try {
+      const r = await fetch("/api/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(current),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        showMsg(data.message, "ok");
+        ajouterRecent(current);
+      } else showMsg(data.error || "Échec.", "err");
+    } catch (err) {
+      showMsg("Impossible de joindre le serveur local.", "err");
+    } finally {
+      btnApply.disabled = !hasPoint;
+      refreshStatus();
+    }
+  });
+
+  btnReset.addEventListener("click", async () => {
+    if (PREVIEW) {
+      showMsg(PREVIEW_NOTICE, "err");
+      return;
+    }
+    btnReset.disabled = true;
+    showMsg("Rétablissement de la position réelle…", "ok");
+    try {
+      const r = await fetch("/api/reset", { method: "POST" });
+      const data = await r.json();
+      if (data.ok) showMsg(data.message, "ok");
+      else showMsg(data.error || "Échec.", "err");
+    } catch (err) {
+      showMsg("Impossible de joindre le serveur local.", "err");
+    } finally {
+      btnReset.disabled = false;
+      refreshStatus();
+    }
+  });
+
+  if (btnFavori) btnFavori.addEventListener("click", basculerFavori);
+
+  document.querySelectorAll(".nav button").forEach((b) => {
+    b.addEventListener("click", () => basculerVue(b.getAttribute("data-vue")));
+  });
+
+  initMap();
+  peindreAdresses();
+  majFavoriBtn();
+  lireHash();
+  basculerVue("carte");
+  refreshStatus();
+  if (!PREVIEW) setInterval(refreshStatus, 5000);
+
+  if (!PREVIEW && "serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+})();
+
+  </script>
+</body>
+</html>
